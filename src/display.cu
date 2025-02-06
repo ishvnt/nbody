@@ -44,14 +44,13 @@ void Display::loop(Point* points)
 
     bool exit = false;
     SDL_Event event;
-    int iter = 0;
     while(!exit)
     {
         while(SDL_PollEvent(&event) != 0)
         {
             if(event.type == SDL_QUIT) exit = true;
         }
-        
+
         check_error( cudaMemPrefetchAsync(points, n_points*sizeof(Point), devId) );
 
         update_vel<<<num_of_blocks, num_of_threads>>>(points);
@@ -70,10 +69,10 @@ void Display::loop(Point* points)
         {
             int x = static_cast<int>(points[i].x);
             int y = static_cast<int>(points[i].y);
+            int b = (points[i].m-1e7)*(255/(1e12-1e7));
+            SDL_SetRenderDrawColor(renderer, 255, 255, b, SDL_ALPHA_OPAQUE);
             SDL_RenderDrawPoint(renderer, x, y);
         }
-        printf("%d\n", iter);
-        iter++;
         SDL_RenderPresent(renderer);
     }
 }

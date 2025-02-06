@@ -1,3 +1,6 @@
 *.o
 main
 .vscode
+*.nsys-rep
+*.sqlite
+*.txt

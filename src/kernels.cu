@@ -8,7 +8,7 @@ cudaError_t check_error(cudaError_t err)
 }
 
 __global__
-void init_points(Point* points)
+void init_random_points(Point* points)
 {
     int idx = threadIdx.x + (blockDim.x * blockIdx.x);
     int stride = blockDim.x * gridDim.x;
@@ -18,7 +18,29 @@ void init_points(Point* points)
         curand_init(clock()+idx, 0, 0, &state);
         points[i].x = curand_uniform_double(&state) * static_cast<double>(SCREEN_WIDTH);
         points[i].y = curand_uniform_double(&state) * static_cast<double>(SCREEN_HEIGHT);
-        printf("point %d : %0.00f, %0.00f\n", idx, points[i].x, points[i].y);
+    }
+}
+
+__global__
+void init_points_in_circle(Point* points, double radius, double centre_x, double centre_y)
+{
+    int idx = threadIdx.x + (blockDim.x * blockIdx.x);
+    int stride = blockDim.x * gridDim.x;
+    for(int i = idx; i < n_points; i += stride)
+    {
+        curandState state;
+        curand_init(clock()+idx, 0, 0, &state);
+
+        double rand_x = curand_uniform_double(&state) * 2;
+        points[i].x = centre_x + ( (rand_x-1) * radius );
+        
+        double max_y = sqrt((radius*radius) - ((centre_x-points[i].x)*(centre_x-points[i].x)));
+        double rand_y = curand_uniform_double(&state) * 2;
+        points[i].y = centre_y + ( (rand_y-1) * max_y );
+
+        points[i].vx = ((points[i].y - centre_y) / centre_y) * 60;              // do this properly
+        points[i].vy = -((points[i].x - centre_x) / centre_x) * 60;             // this too
+        points[i].m = 1e7 + (curand_uniform_double(&state) * (1e12 - 1e7));     // and this
     }
 }
 
@@ -36,12 +58,12 @@ void update_vel(Point* points)
             double dx = points[i].x - points[j].x;
             double dy = points[i].y - points[j].y;
             double r = sqrt( (dx * dx) + (dy * dy) );
-            double F = ( G * m * m ) / ((r * r) + softening);
+            double F = ( G * points[i].m * points[j].m ) / ((r * r) + softening);
             Fx += ( F * dx ) / r;
             Fy += ( F * dy ) / r;
         }
-        points[i].vx -= Fx * dt;
-        points[i].vy -= Fy * dt;
+        points[i].vx -= (Fx / points[i].m) * dt;
+        points[i].vy -= (Fy / points[i].m) * dt;
     }
 }
 
