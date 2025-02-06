@@ -11,13 +11,14 @@ __global__
 void init_points(Point* points)
 {
     int idx = threadIdx.x + (blockDim.x * blockIdx.x);
-    if(idx < n_points)
+    int stride = blockDim.x * gridDim.x;
+    for(int i = idx; i < n_points; i += stride)
     {
         curandState state;
         curand_init(clock()+idx, 0, 0, &state);
-        points[idx].x = curand_uniform_double(&state) * static_cast<double>(SCREEN_WIDTH);
-        points[idx].y = curand_uniform_double(&state) * static_cast<double>(SCREEN_HEIGHT);
-        printf("point %d : %0.00f, %0.00f\n", idx, points[idx].x, points[idx].y);
+        points[i].x = curand_uniform_double(&state) * static_cast<double>(SCREEN_WIDTH);
+        points[i].y = curand_uniform_double(&state) * static_cast<double>(SCREEN_HEIGHT);
+        printf("point %d : %0.00f, %0.00f\n", idx, points[i].x, points[i].y);
     }
 }
 
@@ -25,21 +26,22 @@ __global__
 void update_vel(Point* points)
 {
     int idx = threadIdx.x + (blockDim.x * blockIdx.x);
-    if(idx < n_points)
+    int stride = blockDim.x * gridDim.x;
+    for(int i = idx; i < n_points; i += stride)
     {
         double Fx = 0.00f, Fy = 0.00f;
-        for(int i=0; i<n_points; i++)
+        for(int j=0; j<n_points; j++)
         {
-            if(points[idx].x == points[i].x && points[idx].y == points[i].y) continue;
-            double dx = points[idx].x - points[i].x;
-            double dy = points[idx].y - points[i].y;
+            if(points[i].x == points[j].x && points[i].y == points[j].y) continue;
+            double dx = points[i].x - points[j].x;
+            double dy = points[i].y - points[j].y;
             double r = sqrt( (dx * dx) + (dy * dy) );
             double F = ( G * m * m ) / ((r * r) + softening);
             Fx += ( F * dx ) / r;
             Fy += ( F * dy ) / r;
         }
-        points[idx].vx -= Fx * dt;
-        points[idx].vy -= Fy * dt;
+        points[i].vx -= Fx * dt;
+        points[i].vy -= Fy * dt;
     }
 }
 
@@ -47,9 +49,10 @@ __global__
 void update_pos(Point* points)
 {
     int idx = threadIdx.x + (blockDim.x * blockIdx.x);
-    if(idx < n_points)
+    int stride = blockDim.x * gridDim.x;
+    for(int i = idx; i < n_points; i += stride)
     {
-        points[idx].x += points[idx].vx * dt;
-        points[idx].y += points[idx].vy * dt;
+        points[i].x += points[i].vx * dt;
+        points[i].y += points[i].vy * dt;
     }
 }
