@@ -4,11 +4,11 @@
 class Point
 {
     public:
-        double x;
-        double y;
-        double vx;
-        double vy;
-        double m;
+        float x;
+        float y;
+        float vx;
+        float vy;
+        float m;
 };
 
 #endif
