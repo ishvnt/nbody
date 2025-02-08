@@ -6,7 +6,7 @@
 #include "kernels.cuh"
 
 constexpr const char* SCREEN_TITLE = "n Body Simulation";
-constexpr int SCREEN_WIDTH = 1200;
+constexpr int SCREEN_WIDTH = 1600;
 constexpr int SCREEN_HEIGHT  = 800;
 
 class Display

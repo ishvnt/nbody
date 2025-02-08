@@ -38,9 +38,10 @@ void init_points_in_circle(Point* points, double radius, double centre_x, double
         double rand_y = curand_uniform_double(&state) * 2;
         points[i].y = centre_y + ( (rand_y-1) * max_y );
 
-        points[i].vx = ((points[i].y - centre_y) / centre_y) * 60;              // do this properly
-        points[i].vy = -((points[i].x - centre_x) / centre_x) * 60;             // this too
-        points[i].m = 1e7 + (curand_uniform_double(&state) * (1e12 - 1e7));     // and this
+        points[i].vx = -((points[i].y - centre_y) / centre_y) * 20;              // do this properly
+        points[i].vy = ((points[i].x - centre_x) / centre_x) * 20;             // this too
+        double dist_from_centre = sqrt( (points[i].y - centre_y)*(points[i].y - centre_y) + (points[i].x - centre_x)*(points[i].x - centre_x));
+        points[i].m = 1e7 + ((1-(dist_from_centre/radius)) * (1e12 - 1e7));     // and this
     }
 }
 
