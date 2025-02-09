@@ -38,8 +38,8 @@ void init_points_in_circle(Point* points, float radius, float centre_x, float ce
         float rand_y = curand_uniform(&state) * 2;
         points[i].y = centre_y + ( (rand_y-1) * max_y );
 
-        points[i].vx = -((points[i].y - centre_y) / centre_y) * 20;              // do this properly
-        points[i].vy = ((points[i].x - centre_x) / centre_x) * 20;             // this too
+        points[i].vx = -((1-(points[i].y - centre_y)) / centre_y) * 60;              // do this properly
+        points[i].vy = ((1-(points[i].x - centre_x)) / centre_x) * 60;             // this too
         float dist_from_centre = sqrtf( (points[i].y - centre_y)*(points[i].y - centre_y) + (points[i].x - centre_x)*(points[i].x - centre_x));
         points[i].m = 1e7 + ((1-(dist_from_centre/radius)) * (1e12 - 1e7));     // and this
     }
@@ -53,7 +53,7 @@ void update_vel(Point* points)
     for(int i = idx; i < n_points; i += stride)
     {
         float Fx = 0.00f, Fy = 0.00f;
-        for(int j=0; j<n_points; j++)
+        for(int j = 0; j < n_points; j++)
         {
             if(points[i].x == points[j].x && points[i].y == points[j].y) continue;
             float dx = points[i].x - points[j].x;
