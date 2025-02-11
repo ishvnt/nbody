@@ -8,7 +8,8 @@ class Point
         float y;
         float vx;
         float vy;
-        float m;
+        float ax;
+        float ay;
 };
 
 #endif

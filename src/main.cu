@@ -4,7 +4,7 @@
 int main()
 {
     Point* points;
-    check_error( cudaMallocManaged(&points, n_points*sizeof(Point)) );
+    check_error( cudaMallocManaged(&points, n*sizeof(Point)) );
 
     Display* win = new Display();
 
@@ -14,12 +14,13 @@ int main()
     int num_of_SM;
     check_error( cudaDeviceGetAttribute(&num_of_SM, cudaDevAttrMultiProcessorCount, devId) );
 
-    cudaMemPrefetchAsync(points, n_points*sizeof(Point), devId);
+    cudaMemPrefetchAsync(points, n*sizeof(Point), devId);
 
     int num_of_threads = 1024;
     int num_of_blocks = 32 * num_of_SM;
 
-    init_points_in_circle<<<num_of_blocks, num_of_threads>>>(points, 300, SCREEN_WIDTH/2, SCREEN_HEIGHT/2);
+    init_points_in_circle<<<num_of_blocks, num_of_threads>>>(points, n, 600, 800, 400);
+    //1 init_points_in_circle<<<num_of_blocks, num_of_threads>>>(points+(n/2), n/2, 300, 800, 400);
 
     check_error( cudaGetLastError() );
 

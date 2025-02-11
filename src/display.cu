@@ -51,26 +51,26 @@ void Display::loop(Point* points)
             if(event.type == SDL_QUIT) exit = true;
         }
 
-        check_error( cudaMemPrefetchAsync(points, n_points*sizeof(Point), devId) );
+        check_error( cudaMemPrefetchAsync(points, n*sizeof(Point), devId) );
 
-        update_vel<<<num_of_blocks, num_of_threads>>>(points);
+        update_pos_verlet<<<num_of_blocks, num_of_threads>>>(points);
         check_error( cudaGetLastError() );
-        update_pos<<<num_of_blocks, num_of_threads>>>(points);
+
+        update_vel_verlet<<<num_of_blocks, num_of_threads>>>(points);
         check_error( cudaGetLastError() );
-        
-        check_error( cudaMemPrefetchAsync(points, n_points*sizeof(Point), cudaCpuDeviceId) );
+
+        check_error( cudaMemPrefetchAsync(points, n*sizeof(Point), cudaCpuDeviceId) );
         check_error( cudaDeviceSynchronize() );
 
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
         SDL_RenderClear(renderer);
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, SDL_ALPHA_OPAQUE);
         
-        for (int i = 0; i < n_points; i++) 
+        for (int i = 0; i < n; i++)
         {
             int x = static_cast<int>(points[i].x);
             int y = static_cast<int>(points[i].y);
-            int b = (points[i].m-1e7)*(255/(1e12-1e7));
-            SDL_SetRenderDrawColor(renderer, 255, 255, b, SDL_ALPHA_OPAQUE);
+            SDL_SetRenderDrawColor(renderer, 255, 255, 0, SDL_ALPHA_OPAQUE);
             SDL_RenderDrawPoint(renderer, x, y);
         }
         SDL_RenderPresent(renderer);
