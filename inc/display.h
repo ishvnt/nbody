@@ -6,8 +6,6 @@
 #include "kernels.cuh"
 
 constexpr const char* SCREEN_TITLE = "n Body Simulation";
-constexpr int SCREEN_WIDTH = 1600;
-constexpr int SCREEN_HEIGHT  = 800;
 
 class Display
 {
@@ -15,8 +13,8 @@ class Display
         SDL_Window* window;
         SDL_Renderer* renderer;
     public:
-        Display();
-        void loop(Point* points);
+        Display(int screen_width, int screen_height);
+        void loop(Point* points, int n, float dt, float softening, float centre_x, float centre_y);
         ~Display();
 };
 

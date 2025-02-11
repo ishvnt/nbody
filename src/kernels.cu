@@ -8,25 +8,11 @@ cudaError_t check_error(cudaError_t err)
 }
 
 __global__
-void init_random_points(Point* points)
+void init_galaxy(Point* points, int n, float radius, float centre_x, float centre_y)
 {
     int idx = threadIdx.x + (blockDim.x * blockIdx.x);
     int stride = blockDim.x * gridDim.x;
     for(int i = idx; i < n; i += stride)
-    {
-        curandState state;
-        curand_init(clock()+idx, 0, 0, &state);
-        points[i].x = curand_uniform(&state) * static_cast<float>(SCREEN_WIDTH);
-        points[i].y = curand_uniform(&state) * static_cast<float>(SCREEN_HEIGHT);
-    }
-}
-
-__global__
-void init_points_in_circle(Point* points, int n_points, float radius, float centre_x, float centre_y)
-{
-    int idx = threadIdx.x + (blockDim.x * blockIdx.x);
-    int stride = blockDim.x * gridDim.x;
-    for(int i = idx; i < n_points; i += stride)
     {
         curandState state;
         curand_init(clock()+idx, 0, 0, &state);
@@ -39,35 +25,34 @@ void init_points_in_circle(Point* points, int n_points, float radius, float cent
         
         points[i].y = centre_y + ( r * sinf(phi) * sinf(theta) );
         
-        points[i].vx = sinf(theta)*10;
-        points[i].vy = -cosf(theta)*10;
-        points[i].ax = 0.0f;
-        points[i].ay = 0.0f;
+        points[i].vx = sinf(theta)*20;
+        points[i].vy = -cosf(theta)*20;
+        points[i].ax = 0.00f;
+        points[i].ay = 0.00f;
     }
 }
 
 __global__
-void update_vel(Point* points)
+void update_vel(Point* points, int n, float dt, float softening, float centre_x, float centre_y)
 {
     int idx = threadIdx.x + (blockDim.x * blockIdx.x);
     int stride = blockDim.x * gridDim.x;
     for(int i = idx; i < n; i += stride)
     {
         float Fx = 0.00f, Fy = 0.00f;
-
-        float bh_m = 1e5;
-        float bh_dx = points[i].x - 800;
-        float bh_dy = points[i].y - 400;
-        float bh_rinv = rsqrtf( (bh_dx * bh_dx) + (bh_dy * bh_dy) + softening );
-        float bh_F = bh_m * bh_rinv * bh_rinv;
-        float bh_Fx = bh_F * bh_dx * bh_rinv;
-        float bh_Fy = bh_F * bh_dy * bh_rinv;
-        points[i].vx -= bh_Fx * dt * 0.5f;
-        points[i].vy -= bh_Fy * dt * 0.5f;
-
         for(int j = 0; j < n; j++)
         {
-            if(points[i].x == points[j].x && points[i].y == points[j].y) continue;
+            if(i == j)
+            {
+                float bh_m = 3e4;
+                float bh_dx = points[i].x - centre_x;
+                float bh_dy = points[i].y - centre_y;
+                float bh_rinv = rsqrtf( (bh_dx * bh_dx) + (bh_dy * bh_dy) + softening );
+                float bh_F = bh_m * bh_rinv * bh_rinv;
+                Fx += bh_F * bh_dx * bh_rinv;
+                Fy += bh_F * bh_dy * bh_rinv;
+                continue;
+            }
             float dx = points[i].x - points[j].x;
             float dy = points[i].y - points[j].y;
             float r_inv = rsqrtf( (dx * dx) + (dy * dy) + softening);
@@ -81,7 +66,7 @@ void update_vel(Point* points)
 }
 
 __global__
-void update_pos(Point* points)
+void update_pos(Point* points, int n, float dt)
 {
     int idx = threadIdx.x + (blockDim.x * blockIdx.x);
     int stride = blockDim.x * gridDim.x;
@@ -93,7 +78,7 @@ void update_pos(Point* points)
 }
 
 __global__
-void update_pos_verlet(Point* points)
+void update_pos_verlet(Point* points, int n, float dt)
 {
     int idx = threadIdx.x + (blockDim.x * blockIdx.x);
     int stride = blockDim.x * gridDim.x;
@@ -105,7 +90,7 @@ void update_pos_verlet(Point* points)
 }
 
 __global__
-void update_vel_verlet(Point* points)
+void update_vel_verlet(Point* points, int n, float dt, float softening, float centre_x, float centre_y)
 {
     int idx = threadIdx.x + (blockDim.x * blockIdx.x);
     int stride = blockDim.x * gridDim.x;
@@ -118,7 +103,17 @@ void update_vel_verlet(Point* points)
 
         for(int j = 0; j < n; j++)
         {
-            if(points[i].x == points[j].x && points[i].y == points[j].y) continue;
+            if(i == j)
+            {
+                float bh_m = 4e4;
+                float bh_dx = points[i].x - centre_x;
+                float bh_dy = points[i].y - centre_y;
+                float bh_rinv = rsqrtf( (bh_dx * bh_dx) + (bh_dy * bh_dy) + softening );
+                float bh_F = bh_m * bh_rinv * bh_rinv;
+                Fx += bh_F * bh_dx * bh_rinv;
+                Fy += bh_F * bh_dy * bh_rinv;
+                continue;
+            }
             float dx = points[i].x - points[j].x;
             float dy = points[i].y - points[j].y;
             float r_inv = rsqrtf( (dx * dx) + (dy * dy) + softening);
@@ -126,16 +121,6 @@ void update_vel_verlet(Point* points)
             Fx +=  F * dx  * r_inv;
             Fy +=  F * dy  * r_inv;
         }
-
-        float bh_m = 3e4;
-        float bh_dx = points[i].x - 800;
-        float bh_dy = points[i].y - 400;
-        float bh_rinv = rsqrtf( (bh_dx * bh_dx) + (bh_dy * bh_dy) + softening );
-        float bh_F = bh_m * bh_rinv * bh_rinv;
-        float bh_Fx = bh_F * bh_dx * bh_rinv;
-        float bh_Fy = bh_F * bh_dy * bh_rinv;
-        Fx += bh_Fx;
-        Fy += bh_Fy;
 
         points[i].ax = -Fx;
         points[i].ay = -Fy;

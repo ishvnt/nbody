@@ -1,7 +1,7 @@
 #include "main.h"
 #include "kernels.cuh"
 
-Display::Display()
+Display::Display(int screen_width, int screen_height)
 {
     int err = SDL_Init(SDL_INIT_VIDEO);
     if(err<0)
@@ -12,8 +12,8 @@ Display::Display()
     window = SDL_CreateWindow(  SCREEN_TITLE,
                                 SDL_WINDOWPOS_CENTERED,
                                 SDL_WINDOWPOS_CENTERED,
-                                SCREEN_WIDTH,
-                                SCREEN_HEIGHT,
+                                screen_width,
+                                screen_height,
                                 SDL_WINDOW_SHOWN  );
     if(window == nullptr)
     {
@@ -31,7 +31,7 @@ Display::Display()
     }
 }
 
-void Display::loop(Point* points)
+void Display::loop(Point* points, int n, float dt, float softening, float centre_x, float centre_y)
 {
     int devId;
     check_error( cudaGetDevice(&devId) );
@@ -53,10 +53,10 @@ void Display::loop(Point* points)
 
         check_error( cudaMemPrefetchAsync(points, n*sizeof(Point), devId) );
 
-        update_pos_verlet<<<num_of_blocks, num_of_threads>>>(points);
+        update_pos_verlet<<<num_of_blocks, num_of_threads>>>(points, n, dt);
         check_error( cudaGetLastError() );
 
-        update_vel_verlet<<<num_of_blocks, num_of_threads>>>(points);
+        update_vel_verlet<<<num_of_blocks, num_of_threads>>>(points, n, dt, softening, centre_x, centre_y);
         check_error( cudaGetLastError() );
 
         check_error( cudaMemPrefetchAsync(points, n*sizeof(Point), cudaCpuDeviceId) );
