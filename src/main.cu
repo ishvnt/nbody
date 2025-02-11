@@ -20,7 +20,7 @@ int main(int argc, char* argv[])
         switch (option)
         {
         case 'n':
-            n = min(1<< atoi(optarg), n);
+            n = 1 << atoi(optarg);
             break;
         case 't':
             dt = atof(optarg);
@@ -40,8 +40,17 @@ int main(int argc, char* argv[])
         case 'h':
             screen_height = atoi(optarg);
             break;
+        
         default:
-            std::cout<<"usage: ";
+            std::cout<<"usage: ./main [ARGS]\n";
+            std::cout<<"arguments: \n";
+            std::cout<<"    -n  number of bodies, calculated as pow(2, n), e.g if n = 10, then number of bodies = pow(2, 10) = 1024 \n";
+            std::cout<<"    -t  timestep (dt)\n";
+            std::cout<<"    -x  x-coordinate of centre of galaxy\n";
+            std::cout<<"    -y  y-coordinate of centre of galaxy\n";
+            std::cout<<"    -w  width of window\n";
+            std::cout<<"    -h  height of window\n";
+            return 1;
             break;
         }
     }

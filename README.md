@@ -18,15 +18,23 @@ This program aims to simulate n number of bodies under the influence of gravity 
   ```
   git clone https://github.com/ishvnt/nbody.git
   ```
-- Build using make
+- Compile using make
   ```
   cd nbody
   make
   ```
-- Have fun!
-  ```
-  make run
-  ```
+
+## Usage
+```
+./main [ARGS]  
+arguments:   
+    -n  number of bodies, calculated as pow(2, n), e.g if n = 10, then number of bodies = pow(2, 10) = 1024   
+    -t  timestep (dt)  
+    -x  x-coordinate of centre of galaxy  
+    -y  y-coordinate of centre of galaxy  
+    -w  width of window  
+    -h  height of window  
+``` 
 ## ToDo
 - [ ] Implement Barnes - Hut algorithm
 - [ ] Implement proper weight and initial velocity control
