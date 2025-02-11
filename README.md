@@ -30,4 +30,4 @@ This program aims to simulate n number of bodies under the influence of gravity 
 ## ToDo
 - [ ] Implement Barnes - Hut algorithm
 - [ ] Implement proper weight and initial velocity control
-- [ ] Add command line options
+- [x] Add command line options
