@@ -37,5 +37,4 @@ arguments:
 ``` 
 ## ToDo
 - [ ] Implement Barnes - Hut algorithm
-- [ ] Implement proper weight and initial velocity control
 - [x] Add command line options
