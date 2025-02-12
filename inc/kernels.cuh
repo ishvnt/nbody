@@ -1,27 +1,25 @@
-#ifndef KERNELS_H
-#define KERNELS_H
+#ifndef KERNELS_CUH
+#define KERNELS_CUH
 
 #include "main.h"
+#include "points.h"
 #include "curand_kernel.h"
 
 cudaError_t check_error(cudaError_t err);
 
 __global__
-void init_random_points(Point* points, int n);
+void init_galaxy(Point* points, params_t* params);
 
 __global__
-void init_galaxy(Point* points, int n, float radius, float centre_x, float centre_y);
+void update_pos(Point* points, params_t* params); // euler
 
 __global__
-void update_pos(Point* points, int n, float dt); // euler
+void update_vel(Point* points, params_t* params); // euler
 
 __global__
-void update_vel(Point* points, int n, float dt, float softening, float centre_x, float centre_y); // euler
+void update_pos_verlet(Point* points, params_t* params); // verlet
 
 __global__
-void update_pos_verlet(Point* points, int n, float dt); // verlet
-
-__global__
-void update_vel_verlet(Point* points, int n, float dt, float softening, float centre_x, float centre_y); // verlet
+void update_vel_verlet(Point* points, params_t* params); // verlet
 
 #endif

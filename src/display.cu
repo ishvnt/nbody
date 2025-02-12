@@ -1,7 +1,8 @@
-#include "main.h"
+#include <iostream>
+#include "display.h"
 #include "kernels.cuh"
 
-Display::Display(int screen_width, int screen_height)
+Display::Display(params_t* params)
 {
     int err = SDL_Init(SDL_INIT_VIDEO);
     if(err<0)
@@ -12,8 +13,8 @@ Display::Display(int screen_width, int screen_height)
     window = SDL_CreateWindow(  SCREEN_TITLE,
                                 SDL_WINDOWPOS_CENTERED,
                                 SDL_WINDOWPOS_CENTERED,
-                                screen_width,
-                                screen_height,
+                                params->screen_width,
+                                params->screen_height,
                                 SDL_WINDOW_SHOWN  );
     if(window == nullptr)
     {
@@ -31,16 +32,12 @@ Display::Display(int screen_width, int screen_height)
     }
 }
 
-void Display::loop(Point* points, int n, float dt, float softening, float centre_x, float centre_y)
-{
-    int devId;
-    check_error( cudaGetDevice(&devId) );
-
-    int num_of_SM;
-    check_error( cudaDeviceGetAttribute(&num_of_SM, cudaDevAttrMultiProcessorCount, devId) );
-
-    int num_of_threads = 1024;
-    int num_of_blocks = 32 * num_of_SM;
+void Display::loop(Point* points, params_t* params)
+{ 
+    dim3 blocks = params->block_dim;
+    dim3 threads = params->thread_dim;
+    int dev_id = params->dev_id;
+    int n = params->n;
 
     bool exit = false;
     SDL_Event event;
@@ -50,16 +47,16 @@ void Display::loop(Point* points, int n, float dt, float softening, float centre
         {
             if(event.type == SDL_QUIT) exit = true;
         }
+        check_error( cudaMemPrefetchAsync(params, sizeof(params_t), dev_id) );
+        check_error( cudaMemPrefetchAsync(points, (n)*sizeof(Point), dev_id) );
 
-        check_error( cudaMemPrefetchAsync(points, n*sizeof(Point), devId) );
-
-        update_pos_verlet<<<num_of_blocks, num_of_threads>>>(points, n, dt);
+        update_pos_verlet<<<blocks, threads>>>(points, params);
         check_error( cudaGetLastError() );
 
-        update_vel_verlet<<<num_of_blocks, num_of_threads>>>(points, n, dt, softening, centre_x, centre_y);
+        update_vel_verlet<<<blocks, threads>>>(points, params);
         check_error( cudaGetLastError() );
 
-        check_error( cudaMemPrefetchAsync(points, n*sizeof(Point), cudaCpuDeviceId) );
+        check_error( cudaMemPrefetchAsync(points, (n)*sizeof(Point), cudaCpuDeviceId) );
         check_error( cudaDeviceSynchronize() );
 
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);

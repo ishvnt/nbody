@@ -1,44 +1,85 @@
+#include <iostream>
 #include "main.h"
+#include "display.h"
+#include "points.h"
 #include "kernels.cuh"
 #include "getopt.h"
 
-int n = 1<<15;
-float dt = 0.01f;
-float softening = 5;
-float radius = 300.00f;
-float centre_x = 800.00f;
-float centre_y = 400.00f;
-int screen_width = 1600;
-int screen_height = 800;
-
 int main(int argc, char* argv[])
+{
+    int dev_id;
+    check_error( cudaGetDevice(&dev_id) );
+
+    int num_of_SM;
+    check_error( cudaDeviceGetAttribute(&num_of_SM, cudaDevAttrMultiProcessorCount, dev_id) );
+
+    params_t* params; 
+    check_error( cudaMallocManaged(&params, sizeof(params_t)) );
+    params->n = 1<<15;
+    params->dt = 0.005f;
+    params->softening = 0.05f;
+    params->radius = 100.00f;
+    params->centre_x = 800.00f;
+    params->centre_y = 400.00f;
+    params->screen_width = 1600;
+    params->screen_height = 800;
+    params->dev_id = dev_id;
+    params->thread_dim = {1024, 1, 1};
+    params->block_dim = {(unsigned int)32*num_of_SM, 1, 1};
+
+    if( handle_args(argc, argv, params) == -1 ) return 1;
+
+    Point* points;
+    check_error( cudaMallocManaged(&points, (params->n)*sizeof(Point)) );
+
+    Display* win = new Display(params);
+
+    init_galaxy<<<params->block_dim, params->thread_dim>>>(points, params);
+
+    check_error( cudaGetLastError() );
+
+    check_error( cudaMemPrefetchAsync(params, sizeof(params_t), cudaCpuDeviceId) );
+    check_error( cudaDeviceSynchronize() );
+
+    win->loop(points, params);
+    delete win;
+
+    cudaFree(points);
+    cudaFree(params);
+    return 0;
+}
+
+int handle_args(int argc, char* argv[], params_t* params)
 {
     int option;
     const char* optstring = "t:n:r:x:y:w:h:";
+
     while((option = getopt(argc, argv, optstring)) != -1)
     {
         switch (option)
         {
         case 'n':
-            n = 1 << atoi(optarg);
+            params->n = 1 << atoi(optarg);
             break;
         case 't':
-            dt = atof(optarg);
+            params->dt = atof(optarg);
             break;
         case 'r':
-            radius = atof(optarg);
+            params->radius = atof(optarg);
             break;
         case 'x':
-            centre_x = atof(optarg);
+            params->centre_x = atof(optarg);
             break;
         case 'y':
-            centre_y = atof(optarg);
+            params->centre_y = atof(optarg);
             break;
         case 'w':
-            screen_width = atoi(optarg);
+            params->screen_width = atoi(optarg);
+            params->centre_x = params->screen_width * 0.5f;
             break;
         case 'h':
-            screen_height = atoi(optarg);
+            params->screen_height = atoi(optarg);
+            params->centre_y = params->screen_height * 0.5f;
             break;
         
         default:
@@ -50,36 +91,8 @@ int main(int argc, char* argv[])
             std::cout<<"    -y  y-coordinate of centre of galaxy\n";
             std::cout<<"    -w  width of window\n";
             std::cout<<"    -h  height of window\n";
-            return 1;
-            break;
+            return -1;
         }
     }
-
-    Point* points;
-    check_error( cudaMallocManaged(&points, n*sizeof(Point)) );
-
-    Display* win = new Display(screen_width, screen_height);
-
-    int devId;
-    check_error( cudaGetDevice(&devId) );
-
-    int num_of_SM;
-    check_error( cudaDeviceGetAttribute(&num_of_SM, cudaDevAttrMultiProcessorCount, devId) );
-
-    cudaMemPrefetchAsync(points, n*sizeof(Point), devId);
-
-    int num_of_threads = 1024;
-    int num_of_blocks = 32 * num_of_SM;
-
-    init_galaxy<<<num_of_blocks, num_of_threads>>>(points, n, radius, centre_x, centre_y);
-
-    check_error( cudaGetLastError() );
-
-    check_error( cudaDeviceSynchronize() );
-
-    win->loop(points, n, dt, softening, centre_x, centre_y);
-    delete win;
-
-    cudaFree(points);
     return 0;
 }
