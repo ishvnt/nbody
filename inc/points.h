@@ -4,12 +4,10 @@
 class Point
 {
     public:
-        float x;
-        float y;
-        float vx;
-        float vy;
-        float ax;
-        float ay;
+        float2 pos;
+        float2 vel;
+        float2 acc;
+        float mass;
 };
 
 #endif

@@ -26,7 +26,7 @@ This program aims to simulate n number of bodies under the influence of gravity 
 
 ## Usage
 ```
-./main [ARGS]  
+./nbody [ARGS]  
 arguments:   
     -n  number of bodies, calculated as pow(2, n), e.g if n = 10, then number of bodies = pow(2, 10) = 1024   
     -t  timestep (dt)  

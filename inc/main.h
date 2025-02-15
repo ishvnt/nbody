@@ -7,8 +7,7 @@ typedef struct
     float dt;
     float softening;
     float radius;
-    float centre_x;
-    float centre_y;
+    float2 centre;
     int screen_width;
     int screen_height;
     int dev_id;

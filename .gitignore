@@ -1,6 +1,6 @@
-*.o
-main
+nbody
 .vscode
+build
 *.nsys-rep
 *.sqlite
 *.txt
