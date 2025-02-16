@@ -13,11 +13,12 @@ int main(int argc, char *argv[])
     int num_of_SM;
     check_error( cudaDeviceGetAttribute(&num_of_SM, cudaDevAttrMultiProcessorCount, dev_id) );
 
-    params_t *params;
+    params_t* params;
     check_error( cudaMallocManaged(&params, sizeof(params_t)) );
+    // default parameters
     params->n = 1 << 15;
     params->dt = 0.005f;
-    params->softening = 0.05f;
+    params->softening = 5.00f;
     params->radius = 300.00f;
     params->centre.x = 800.00f;
     params->centre.y = 400.00f;
@@ -27,16 +28,19 @@ int main(int argc, char *argv[])
     params->thread_dim = {1024, 1, 1};
     params->block_dim = {(unsigned int)32 * num_of_SM, 1, 1};
 
+    // change parameters according to command line arguments provided
     if (handle_args(argc, argv, params) == -1)
         return 1;
 
-    Point *points;
+    Point* points;
     check_error( cudaMallocManaged(&points, (params->n) * sizeof(Point)) );
 
-    Display *win = new Display(params);
+    Display* win = new Display(params);
 
-    init_galaxy<<<params->block_dim, params->thread_dim>>>(points, params);
-
+    // n/2 points in first galaxy
+    init_galaxy<<<params->block_dim, params->thread_dim>>>(points, params->n/2, params->radius, params->centre);
+    // n/2 points in second smaller galaxy
+    init_galaxy<<<params->block_dim, params->thread_dim>>>(points + (params->n/2), params->n/2, 150.00f, {300.00f, 200.00f});
     check_error( cudaGetLastError() );
 
     check_error( cudaMemPrefetchAsync(params, sizeof(params_t), cudaCpuDeviceId) );
@@ -50,10 +54,10 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-int handle_args(int argc, char *argv[], params_t *params)
+int handle_args(int argc, char* argv[], params_t* params)
 {
     int option;
-    const char *optstring = "t:n:r:x:y:w:h:";
+    const char* optstring = "t:n:r:x:y:w:h:";
 
     while ((option = getopt(argc, argv, optstring)) != -1)
     {

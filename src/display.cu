@@ -2,7 +2,7 @@
 #include "display.h"
 #include "kernels.cuh"
 
-Display::Display(params_t *params)
+Display::Display(params_t* params)
 {
     int err = SDL_Init(SDL_INIT_VIDEO);
     if (err < 0)
@@ -32,7 +32,8 @@ Display::Display(params_t *params)
     }
 }
 
-void Display::loop(Point *points, params_t *params)
+// calculate positions and velocities and display in window until it is closed
+void Display::loop(Point* points, params_t* params)
 {
     dim3 blocks = params->block_dim;
     dim3 threads = params->thread_dim;
@@ -48,13 +49,13 @@ void Display::loop(Point *points, params_t *params)
             if (event.type == SDL_QUIT)
                 exit = true;
         }
-        check_error( cudaMemPrefetchAsync(params, sizeof(params_t), dev_id));
+        check_error( cudaMemPrefetchAsync(params, sizeof(params_t), dev_id) );
         check_error( cudaMemPrefetchAsync(points, (n) * sizeof(Point), dev_id) );
 
-        update_pos_verlet<<<blocks, threads>>>(points, params);
+        update_pos<<<blocks, threads>>>(points, params);
         check_error( cudaGetLastError() );
 
-        update_vel_verlet<<<blocks, threads>>>(points, params);
+        update_vel<<<blocks, threads>>>(points, params);
         check_error( cudaGetLastError() );
 
         check_error( cudaMemPrefetchAsync(points, (n) * sizeof(Point), cudaCpuDeviceId) );
@@ -68,7 +69,9 @@ void Display::loop(Point *points, params_t *params)
         {
             int x = static_cast<int>(points[i].pos.x);
             int y = static_cast<int>(points[i].pos.y);
-            SDL_SetRenderDrawColor(renderer, 255, 255, 0, SDL_ALPHA_OPAQUE);
+
+            int b = (points[i].mass / 10) * 255; // change color based on mass, yellow -> low mass, white -> high mass
+            SDL_SetRenderDrawColor(renderer, 255, 255, b, SDL_ALPHA_OPAQUE);
             SDL_RenderDrawPoint(renderer, x, y);
         }
         SDL_RenderPresent(renderer);

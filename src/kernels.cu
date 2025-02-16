@@ -4,101 +4,84 @@
 cudaError_t check_error(cudaError_t err)
 {
     if (err != cudaSuccess)
-        printf("error: %s\n", cudaGetErrorString(err));
+        fprintf(stderr, "error: %s\n", cudaGetErrorString(err));
     return err;
 }
 
-__global__ void init_galaxy(Point *points, params_t *params)
+__global__
+void init_galaxy(Point* points, unsigned int n, float radius, float2 centre)
 {
     int idx = threadIdx.x + (blockDim.x * blockIdx.x);
     int stride = blockDim.x * gridDim.x;
-    for (int i = idx; i < params->n; i += stride)
+    for (int i = idx; i < n; i += stride)
     {
+        // initialise stars
         if (i != 0)
         {
             curandState state;
-            curand_init(clock() + idx, 0, 0, &state);
+            curand_init(clock() + i, 0, 0, &state);                  // initialise seed with current time and index to give it some ranomness
 
             float theta = curand_uniform(&state) * 2 * M_PI;
-            float r = expf(-3.0f * curand_uniform(&state)) * params->radius;
-            float spiral_angle = theta + 0.5f * r;
+            float r = expf(-3.0f * curand_uniform(&state)) * radius; // exponential distribution function, range : (0.04979*radius, 1*radius]
+            float spiral_angle = theta + 0.5f * r;                   // modify theta according to r to give the stars proper position and velocity distribution
 
-            float2 r2 = curand_normal2(&state);
+            points[i].pos.x = centre.x + (r * cosf(spiral_angle));
+            points[i].pos.y = centre.y + (r * sinf(spiral_angle));
 
-            points[i].pos.x = params->centre.x + (r * cosf(spiral_angle));
-            points[i].pos.y = params->centre.y + (r * sinf(spiral_angle));
-
-            float dx = points[i].pos.x - params->centre.x;
-            float dy = points[i].pos.y - params->centre.y;
+            float dx = points[i].pos.x - centre.x;
+            float dy = points[i].pos.y - centre.y;
             float d_inv = rsqrtf((dx * dx) + (dy * dy));
-            float v = sqrtf(5e5 * d_inv);
+            float v = sqrtf(black_hole_mass * d_inv);                // give stars orbital velocity
 
             points[i].vel.x = -v * sinf(spiral_angle);
             points[i].vel.y = v * cosf(spiral_angle);
+
+            // add velocity of centre of mass of galaxy (black hole)
+            points[i].vel.x += points[0].vel.x;
+            points[i].vel.y += points[0].vel.y;
+            
             points[i].acc.x = 0.00f;
             points[i].acc.y = 0.00f;
-            points[i].mass = 1;
+
+            points[i].mass = 10 * (curand_uniform(&state));
         }
-        else // black hole
+        else // initialise black hole
         {
-            points[i].pos.x = params->centre.x;
-            points[i].pos.y = params->centre.y;
-            points[i].vel.x = 0.00f;
-            points[i].vel.y = 0.00f;
+            points[i].pos.x = centre.x;
+            points[i].pos.y = centre.y;
+            if(radius < 200.00f) 
+            {
+                points[i].vel.x = 30.00f;                           // move the smaller galaxy towards the larger one
+                points[i].vel.y = 0.00f;
+            }
+            else
+            {
+                points[i].vel.x = 0.00f;
+                points[i].vel.y = 0.00f;
+            }
             points[i].acc.x = 0.00f;
             points[i].acc.y = 0.00f;
-            points[i].mass = 5e5;
+            points[i].mass = black_hole_mass;
         }
     }
 }
 
-__global__ void update_vel(Point *points, params_t *params)
+__global__
+void update_pos(Point* points, params_t* params)
 {
     int idx = threadIdx.x + (blockDim.x * blockIdx.x);
     int stride = blockDim.x * gridDim.x;
     for (int i = idx; i < params->n; i += stride)
     {
-        float Fx = 0.00f, Fy = 0.00f;
-        for (int j = 0; j < params->n; j++)
-        {
-            if (i == j)
-                continue;
-
-            float dx = points[i].pos.x - points[j].pos.x;
-            float dy = points[i].pos.y - points[j].pos.y;
-            float r_inv = rsqrtf((dx * dx) + (dy * dy) + params->softening);
-            float F = points[i].mass * points[j].mass * r_inv * r_inv;
-            Fx += F * dx * r_inv;
-            Fy += F * dy * r_inv;
-        }
-        points[i].vel.x -= (Fx / points[i].mass) * params->dt * 0.5f;
-        points[i].vel.y -= (Fy / points[i].mass) * params->dt * 0.5f;
-    }
-}
-
-__global__ void update_pos(Point *points, params_t *params)
-{
-    int idx = threadIdx.x + (blockDim.x * blockIdx.x);
-    int stride = blockDim.x * gridDim.x;
-    for (int i = idx; i < params->n; i += stride)
-    {
-        points[i].pos.x += points[i].vel.x * params->dt;
-        points[i].pos.y += points[i].vel.y * params->dt;
-    }
-}
-
-__global__ void update_pos_verlet(Point *points, params_t *params)
-{
-    int idx = threadIdx.x + (blockDim.x * blockIdx.x);
-    int stride = blockDim.x * gridDim.x;
-    for (int i = idx; i < params->n; i += stride)
-    {
+        // verlet integration
+        // r_n = r_n-1 + v_n-1*dt + (1/2)*a_n-1*dt*dt
         points[i].pos.x += (points[i].vel.x * params->dt) + (0.5f * points[i].acc.x * params->dt * params->dt);
         points[i].pos.y += (points[i].vel.y * params->dt) + (0.5f * points[i].acc.y * params->dt * params->dt);
     }
 }
 
-__global__ void update_vel_verlet(Point *points, params_t *params)
+__global__
+void update_vel(Point* points, params_t* params)
 {
     int idx = threadIdx.x + (blockDim.x * blockIdx.x);
     int stride = blockDim.x * gridDim.x;
@@ -106,13 +89,15 @@ __global__ void update_vel_verlet(Point *points, params_t *params)
     {
         float Fx = 0.00f, Fy = 0.00f;
 
+        // verlet integration
+        // v_n = v_n-1 + (1/2)*(a_n-1+a_n)*dt
+        // add previous acceleration to velocity (a_n-1)
         points[i].vel.x += 0.5f * points[i].acc.x * params->dt;
         points[i].vel.y += 0.5f * points[i].acc.y * params->dt;
 
         for (int j = 0; j < params->n; j++)
         {
-            if (i == j)
-                continue;
+            if (i == j) continue;
 
             float dx = points[i].pos.x - points[j].pos.x;
             float dy = points[i].pos.y - points[j].pos.y;
@@ -125,6 +110,7 @@ __global__ void update_vel_verlet(Point *points, params_t *params)
         points[i].acc.x = -Fx / points[i].mass;
         points[i].acc.y = -Fy / points[i].mass;
 
+        // add current acceleration to velocity (a_n)
         points[i].vel.x += 0.5f * points[i].acc.x * params->dt;
         points[i].vel.y += 0.5f * points[i].acc.y * params->dt;
     }
