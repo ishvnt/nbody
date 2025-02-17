@@ -42,7 +42,6 @@ void Display::loop(Point* points, params_t* params)
 
     bool exit = false;
     SDL_Event event;
-    int iter = 0;
     while (!exit)
     {
         while (SDL_PollEvent(&event) != 0)
@@ -56,7 +55,7 @@ void Display::loop(Point* points, params_t* params)
         update_pos<<<blocks, threads>>>(points, params);
         check_error( cudaGetLastError() );
 
-        update_vel<<<blocks, threads>>>(points, params);
+        update_vel_tiled<<<blocks, threads>>>(points, params);
         check_error( cudaGetLastError() );
 
         check_error( cudaMemPrefetchAsync(points, (n) * sizeof(Point), cudaCpuDeviceId) );

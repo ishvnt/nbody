@@ -18,4 +18,7 @@ void update_pos(Point* points, params_t* params);
 __global__
 void update_vel(Point* points, params_t* params);
 
+__global__
+void update_vel_tiled(Point* points, params_t* params);
+
 #endif

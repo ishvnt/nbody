@@ -69,61 +69,105 @@ void init_galaxy(Point* points, unsigned int n, float radius, float2 centre)
 __global__
 void update_pos(Point* points, params_t* params)
 {
-    int tid = threadIdx.x;
     int idx = threadIdx.x + (blockDim.x * blockIdx.x);
     int stride = blockDim.x * gridDim.x;
-    __shared__ Point pts[256];
     for (int i = idx; i < params->n; i += stride)
     {
         // verlet integration
         // r_n = r_n-1 + v_n-1*dt + (1/2)*a_n-1*dt*dt
-        pts[tid] = points[i];
-        pts[tid].pos.x += (pts[tid].vel.x * params->dt) + (0.5f * pts[tid].acc.x * params->dt * params->dt);
-        pts[tid].pos.y += (pts[tid].vel.y * params->dt) + (0.5f * pts[tid].acc.y * params->dt * params->dt);
-        points[i] = pts[tid];
+        Point pi = points[i];
+        pi.pos.x += (pi.vel.x * params->dt) + (0.5f * pi.acc.x * params->dt * params->dt);
+        pi.pos.y += (pi.vel.y * params->dt) + (0.5f * pi.acc.y * params->dt * params->dt);
+        points[i] = pi;
     }
 }
 
 __global__
 void update_vel(Point* points, params_t* params)
 {
-    int tid = threadIdx.x;
+    int idx = threadIdx.x + (blockDim.x * blockIdx.x);
+    int stride = blockDim.x * gridDim.x;
+    __shared__ params_t d_params;
+    d_params = *params;
+    __syncthreads();
+    for (int i = idx; i < d_params.n; i += stride)
+    {
+        Point pi = points[i];
+        float Fx = 0.00f, Fy = 0.00f;
+
+        // verlet integration
+        // v_n = v_n-1 + (1/2)*(a_n-1+a_n)*dt
+        // add previous acceleration to velocity (a_n-1)
+        pi.vel.x += 0.5f * pi.acc.x * d_params.dt;
+        pi.vel.y += 0.5f * pi.acc.y * d_params.dt;
+
+        for (int j = 0; j < d_params.n; j++)
+        {
+            if (i == j) continue;
+
+            float dx = pi.pos.x - points[j].pos.x;
+            float dy = pi.pos.y - points[j].pos.y;
+            float r_inv = rsqrtf((dx * dx) + (dy * dy) + d_params.softening);
+            float F = pi.mass * points[j].mass * r_inv * r_inv;
+            Fx += F * dx * r_inv;
+            Fy += F * dy * r_inv;
+        }
+
+        pi.acc.x = -Fx / pi.mass;
+        pi.acc.y = -Fy / pi.mass;
+
+        // add current acceleration to velocity (a_n)
+        pi.vel.x += 0.5f * pi.acc.x * d_params.dt;
+        pi.vel.y += 0.5f * pi.acc.y * d_params.dt;
+
+        points[i] = pi;
+    }
+}
+
+__global__
+void update_vel_tiled(Point* points, params_t* params)
+{
     int idx = threadIdx.x + (blockDim.x * blockIdx.x);
     int stride = blockDim.x * gridDim.x;
     __shared__ Point pts[256];
     __shared__ params_t d_params;
     d_params = *params;
     __syncthreads();
-    for (int i = idx; i < d_params.n; i += stride)
+
+    for(int i=idx; i<d_params.n; i+=stride)
     {
-        pts[tid] = points[i];
+        Point pi = points[i];
+
+        pi.vel.x += 0.5f * pi.acc.x * d_params.dt;
+        pi.vel.y += 0.5f * pi.acc.y * d_params.dt;
+
         float Fx = 0.00f, Fy = 0.00f;
-
-        // verlet integration
-        // v_n = v_n-1 + (1/2)*(a_n-1+a_n)*dt
-        // add previous acceleration to velocity (a_n-1)
-        pts[tid].vel.x += 0.5f * pts[tid].acc.x * d_params.dt;
-        pts[tid].vel.y += 0.5f * pts[tid].acc.y * d_params.dt;
-
-        for (int j = 0; j < d_params.n; j++)
+        for(int tile = 0; tile<gridDim.x; tile++)
         {
-            if (i == j) continue;
-
-            float dx = pts[tid].pos.x - points[j].pos.x;
-            float dy = pts[tid].pos.y - points[j].pos.y;
-            float r_inv = rsqrtf((dx * dx) + (dy * dy) + d_params.softening);
-            float F = pts[tid].mass * points[j].mass * r_inv * r_inv;
-            Fx += F * dx * r_inv;
-            Fy += F * dy * r_inv;
+            pts[threadIdx.x] = points[(tile * blockDim.x) + threadIdx.x];
+            __syncthreads();
+            for(int k = 0; k<blockDim.x; k++)
+            {
+                Point pj = pts[k];
+                int j = (tile * blockDim.x) + k;
+                if(j < d_params.n)
+                {
+                    float dx = pi.pos.x - pj.pos.x;
+                    float dy = pi.pos.y - pj.pos.y;
+                    float r_inv = rsqrtf((dx * dx) + (dy * dy) + d_params.softening);
+                    float F = pi.mass * pj.mass * r_inv * r_inv;
+                    Fx += F * dx * r_inv;
+                    Fy += F * dy * r_inv;
+                }
+            }
+            __syncthreads();
         }
+        pi.acc.x = -Fx / pi.mass;
+        pi.acc.y = -Fy / pi.mass;
 
-        pts[tid].acc.x = -Fx / pts[tid].mass;
-        pts[tid].acc.y = -Fy / pts[tid].mass;
-
-        // add current acceleration to velocity (a_n)
-        pts[tid].vel.x += 0.5f * pts[tid].acc.x * d_params.dt;
-        pts[tid].vel.y += 0.5f * pts[tid].acc.y * d_params.dt;
-
-        points[i] = pts[tid];
+        pi.vel.x += 0.5f * pi.acc.x * d_params.dt;
+        pi.vel.y += 0.5f * pi.acc.y * d_params.dt;
+        
+        points[i] = pi;
     }
 }
