@@ -25,8 +25,8 @@ int main(int argc, char *argv[])
     params->screen_width = 1600;
     params->screen_height = 800;
     params->dev_id = dev_id;
-    params->thread_dim = {1024, 1, 1};
-    params->block_dim = {(unsigned int)32 * num_of_SM, 1, 1};
+    params->thread_dim = {256, 1, 1};
+    params->block_dim = {params->n/params->thread_dim.x + 1, 1, 1};
 
     // change parameters according to command line arguments provided
     if (handle_args(argc, argv, params) == -1)
@@ -88,14 +88,14 @@ int handle_args(int argc, char* argv[], params_t* params)
             break;
 
         default:
-            std::cout << "usage: ./nbody [ARGS]\n\
-arguments: \n \
-\t-n  number of bodies, calculated as pow(2, n), e.g if n = 10, then number of bodies = pow(2, 10) = 1024 \n \
-\t-t  timestep (dt)\n \
-\t-x  x-coordinate of centre of galaxy\n \
-\t-y  y-coordinate of centre of galaxy\n \
-\t-w  width of window\n \
-\t-h  height of window\n";
+            std::cout << "usage: ./nbody [ARGS]\n"
+                      << "arguments: \n"
+                      << "\t-n  number of bodies, calculated as pow(2, n), e.g if n = 10, then number of bodies = pow(2, 10) = 1024 \n"
+                      << "\t-t  timestep (dt)\n"
+                      << "\t-x  x-coordinate of centre of galaxy\n"
+                      << "\t-y  y-coordinate of centre of galaxy\n"
+                      << "\t-w  width of window\n"
+                      << "\t-h  height of window\n";
             return -1;
         }
     }

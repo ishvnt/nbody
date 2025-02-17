@@ -5,7 +5,7 @@
 #include "points.h"
 #include "curand_kernel.h"
 
-constexpr float black_hole_mass = 5e5;
+__constant__ float black_hole_mass = 5e5;
 
 cudaError_t check_error(cudaError_t err);
 

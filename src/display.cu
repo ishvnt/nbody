@@ -42,6 +42,7 @@ void Display::loop(Point* points, params_t* params)
 
     bool exit = false;
     SDL_Event event;
+    int iter = 0;
     while (!exit)
     {
         while (SDL_PollEvent(&event) != 0)
