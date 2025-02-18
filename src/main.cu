@@ -25,9 +25,9 @@ int main(int argc, char *argv[])
     params->screen_width = 1600;
     params->screen_height = 800;
     params->dev_id = dev_id;
-    params->thread_dim = {256, 1, 1};
-    params->block_dim = {params->n/params->thread_dim.x + 1, 1, 1};
-
+    params->thread_dim = {1024, 1, 1};
+    params->block_dim = {(1<<15)/1024, 1, 1};
+    
     // change parameters according to command line arguments provided
     if (handle_args(argc, argv, params) == -1)
         return 1;
@@ -65,6 +65,7 @@ int handle_args(int argc, char* argv[], params_t* params)
         {
         case 'n':
             params->n = 1 << atoi(optarg);
+            params->block_dim = params->n / params->thread_dim.x;
             break;
         case 't':
             params->dt = atof(optarg);

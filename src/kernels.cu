@@ -19,7 +19,7 @@ void init_galaxy(Point* points, unsigned int n, float radius, float2 centre)
         if (i != 0)
         {
             curandState state;
-            curand_init(clock() + i, 0, 0, &state);                  // initialise seed with current time and index to give it some ranomness
+            curand_init(clock() + i, 0, 0, &state);                  // initialise seed with current time and index to give it some randomness
 
             float theta = curand_uniform(&state) * 2 * M_PI;
             float r = expf(-3.0f * curand_uniform(&state)) * radius; // exponential distribution function, range : (0.04979*radius, 1*radius]
@@ -49,6 +49,10 @@ void init_galaxy(Point* points, unsigned int n, float radius, float2 centre)
         {
             points[i].pos.x = centre.x;
             points[i].pos.y = centre.y;
+            points[i].acc.x = 0.00f;
+            points[i].acc.y = 0.00f;
+            points[i].mass = black_hole_mass;
+            
             if(radius < 200.00f) 
             {
                 points[i].vel.x = 30.00f;                           // move the smaller galaxy towards the larger one
@@ -59,9 +63,6 @@ void init_galaxy(Point* points, unsigned int n, float radius, float2 centre)
                 points[i].vel.x = 0.00f;
                 points[i].vel.y = 0.00f;
             }
-            points[i].acc.x = 0.00f;
-            points[i].acc.y = 0.00f;
-            points[i].mass = black_hole_mass;
         }
     }
 }
@@ -127,14 +128,13 @@ void update_vel(Point* points, params_t* params)
 __global__
 void update_vel_tiled(Point* points, params_t* params)
 {
-    int idx = threadIdx.x + (blockDim.x * blockIdx.x);
-    int stride = blockDim.x * gridDim.x;
-    __shared__ Point pts[256];
+    int i = threadIdx.x + (blockDim.x * blockIdx.x);
+    __shared__ Point pts[TILE_SIZE];
     __shared__ params_t d_params;
     d_params = *params;
     __syncthreads();
 
-    for(int i=idx; i<d_params.n; i+=stride)
+    if(i < d_params.n)
     {
         Point pi = points[i];
 
@@ -167,7 +167,7 @@ void update_vel_tiled(Point* points, params_t* params)
 
         pi.vel.x += 0.5f * pi.acc.x * d_params.dt;
         pi.vel.y += 0.5f * pi.acc.y * d_params.dt;
-        
+
         points[i] = pi;
     }
 }
